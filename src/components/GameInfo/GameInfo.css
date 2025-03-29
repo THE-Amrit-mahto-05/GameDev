@@ -1,0 +1,33 @@
+.game-info {
+    width: 100%;
+    max-width: 800px;
+    background: white;
+    border-radius: 10px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  }
+  
+  .info-item {
+    text-align: center;
+  }
+  
+  .phase-indicator {
+    grid-column: span 2;
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: #e67e22;
+    text-align: center;
+    padding: 0.5rem 0;
+  }
+  
+  .timer {
+    grid-column: span 2;
+    font-size: 1.1rem;
+    color: #7f8c8d;
+    text-align: center;
+    font-style: italic;
+  }
