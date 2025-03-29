@@ -7,6 +7,7 @@ const MAX_LEVEL = 10;
 const BASE_OPTIONS = 20;
 const OPTIONS_INCREMENT = 5;
 const MAX_WRONG_ATTEMPTS = 3;
+const LEVEL_TRANSITION_DELAY = 5000;
 
 const Home = () => {
   const [allNumbers] = useState(initializeNumbers());
@@ -20,16 +21,29 @@ const Home = () => {
   const [gameStatus, setGameStatus] = useState('playing');
   const [wrongAttempts, setWrongAttempts] = useState(0);
   const [popupMessage, setPopupMessage] = useState({ show: false, text: '', type: '' });
+  const [iqScore, setIqScore] = useState(null);
+  const [showLevelComplete, setShowLevelComplete] = useState(false);
   const timerRef = useRef(null);
   const popupTimerRef = useRef(null);
+  const levelCompleteTimerRef = useRef(null);
 
-  const showPopup = (text, type = 'info') => {
+  const showPopup = (text, type = 'info', duration = 2000) => {
     setPopupMessage({ show: true, text, type });
     clearTimeout(popupTimerRef.current);
     popupTimerRef.current = setTimeout(() => {
       setPopupMessage({ show: false, text: '', type: '' });
-    }, 2000);
+    }, duration);
   };
+
+  const calculateIQ = (currentLevel, currentScore) => {
+    const baseIQ = 90 + (currentLevel * 3) + (currentScore / 20);
+    const variation = Math.random() * 10 - 5;
+    return Math.min(150, Math.max(80, Math.round(baseIQ + variation)));
+  };
+
+  const getMemorizeTime = useCallback((currentLevel) => {
+    return 20 + (currentLevel - 1) * 10;
+  }, []);
 
   const getRecallTime = useCallback((currentLevel) => {
     return 20 * currentLevel;
@@ -38,15 +52,9 @@ const Home = () => {
   const getTestNumbers = useCallback((memoryNums, allNums, currentLevel) => {
     const optionsCount = BASE_OPTIONS + ((currentLevel - 1) * OPTIONS_INCREMENT);
     const neededDistractors = optionsCount - memoryNums.length;
-    
     const possibleDistractors = allNums.filter(num => !memoryNums.includes(num));
-    
-    const shuffledDistractors = [...possibleDistractors]
-      .sort(() => 0.5 - Math.random())
-      .slice(0, neededDistractors);
-    
-    return [...memoryNums, ...shuffledDistractors]
-      .sort(() => 0.5 - Math.random());
+    const shuffledDistractors = [...possibleDistractors].sort(() => 0.5 - Math.random()).slice(0, neededDistractors);
+    return [...memoryNums, ...shuffledDistractors].sort(() => 0.5 - Math.random());
   }, []);
 
   const resetGame = useCallback(() => {
@@ -56,57 +64,56 @@ const Home = () => {
     setMemoryNumbers([]);
     setTestNumbers([]);
     setSelectedNumbers([]);
-    setTimeLeft(20);
+    setTimeLeft(getMemorizeTime(1));
     setWrongAttempts(0);
+    setIqScore(null);
+    setShowLevelComplete(false);
     showPopup("Ready for a new challenge? Let's go!", 'info');
-  }, []);
+  }, [getMemorizeTime]);
 
   const startGame = useCallback(() => {
     setGameStatus('playing');
     const initialNumbers = getMemoryNumbers(allNumbers, 1);
     setMemoryNumbers(initialNumbers);
     setPhase('memorize');
-    setTimeLeft(20);
+    setTimeLeft(getMemorizeTime(1));
     setWrongAttempts(0);
     showPopup(`Level 1: Memorize ${initialNumbers.length} numbers!`, 'info');
-  }, [allNumbers]);
+  }, [allNumbers, getMemorizeTime]);
 
   const startLevel = useCallback((currentLevel) => {
     if (currentLevel > MAX_LEVEL) {
       setGameStatus('complete');
-      showPopup("Congratulations! You've mastered all levels!", 'success');
+      showPopup("Congratulations! You've mastered all levels!", 'success', LEVEL_TRANSITION_DELAY);
       return;
     }
     const newMemoryNumbers = getMemoryNumbers(allNumbers, currentLevel);
     setMemoryNumbers(newMemoryNumbers);
     setPhase('memorize');
     setSelectedNumbers([]);
-    setTimeLeft(20);
+    setTimeLeft(getMemorizeTime(currentLevel));
     setLevel(currentLevel);
     setWrongAttempts(0);
-    showPopup(`Level ${currentLevel}: Memorize ${newMemoryNumbers.length} numbers!`, 'info');
-  }, [allNumbers]);
+    setShowLevelComplete(false);
+    showPopup(`Level ${currentLevel}: Memorize ${newMemoryNumbers.length} numbers!`, 'info', LEVEL_TRANSITION_DELAY);
+  }, [allNumbers, getMemorizeTime]);
 
   const showTestNumbers = useCallback(() => {
     const newTestNumbers = getTestNumbers(memoryNumbers, allNumbers, level);
     setTestNumbers(newTestNumbers);
     setPhase('test');
     setTimeLeft(getRecallTime(level));
-    showPopup(`Now select the ${memoryNumbers.length} numbers you memorized!`, 'info');
+    showPopup(`Now select the ${memoryNumbers.length} numbers you memorized!`, 'info', LEVEL_TRANSITION_DELAY);
   }, [memoryNumbers, allNumbers, level, getTestNumbers, getRecallTime]);
 
   const endTestPhase = useCallback(() => {
-    const correctCount = selectedNumbers.filter(num => 
-      memoryNumbers.includes(num)
-    ).length;
-    
+    const correctCount = selectedNumbers.filter(num => memoryNumbers.includes(num)).length;
     const isLevelComplete = correctCount === memoryNumbers.length;
-    
     if (!isLevelComplete) {
-      showPopup("Almost there! Try again!", 'warning');
+      showPopup("Almost there! Try again!", 'warning', LEVEL_TRANSITION_DELAY);
       setTimeout(() => {
         resetGame();
-      }, 1500);
+      }, LEVEL_TRANSITION_DELAY);
     }
   }, [selectedNumbers, memoryNumbers, resetGame]);
 
@@ -115,11 +122,16 @@ const Home = () => {
     return () => {
       clearTimeout(timerRef.current);
       clearTimeout(popupTimerRef.current);
+      clearTimeout(levelCompleteTimerRef.current);
     };
   }, [resetGame]);
 
   useEffect(() => {
-    if (gameStatus === 'playing' && (phase === 'memorize' || phase === 'test')) {
+    if (gameStatus === 'playing') {
+      if (phase === 'memorize') {
+        setTimeLeft(getMemorizeTime(level));
+      }
+      
       timerRef.current = setInterval(() => {
         setTimeLeft(prev => {
           if (prev <= 1) {
@@ -137,7 +149,7 @@ const Home = () => {
     }
 
     return () => clearInterval(timerRef.current);
-  }, [gameStatus, phase, showTestNumbers, endTestPhase]);
+  }, [gameStatus, phase, level, showTestNumbers, endTestPhase, getMemorizeTime]);
 
   const handleNumberClick = (number) => {
     if (phase !== 'test' || selectedNumbers.includes(number)) return;
@@ -148,10 +160,10 @@ const Home = () => {
       setWrongAttempts(newWrongAttempts);
       
       if (newWrongAttempts >= MAX_WRONG_ATTEMPTS) {
-        showPopup("Oops! Too many wrong attempts. Try again!", 'error');
+        showPopup("Oops! Too many wrong attempts. Try again!", 'error', LEVEL_TRANSITION_DELAY);
         setTimeout(() => {
           resetGame();
-        }, 1000);
+        }, LEVEL_TRANSITION_DELAY);
       } else {
         showPopup(`Careful! ${MAX_WRONG_ATTEMPTS - newWrongAttempts} attempts left`, 'warning');
       }
@@ -161,26 +173,24 @@ const Home = () => {
     
     setSelectedNumbers(prev => {
       const newSelected = [...prev, number];
-      
       const allCorrectSelected = memoryNumbers.every(num => newSelected.includes(num));
       if (allCorrectSelected) {
-        
         clearInterval(timerRef.current);
-       
         const newScore = score + calculateScore(level);
         setScore(newScore);
+        const calculatedIQ = calculateIQ(level, newScore);
+        setIqScore(calculatedIQ);
+        setShowLevelComplete(true);
         
-        if (level === MAX_LEVEL) {
-          showPopup("Perfect! You've completed the game!", 'success');
-          setTimeout(() => {
+        clearTimeout(levelCompleteTimerRef.current);
+        levelCompleteTimerRef.current = setTimeout(() => {
+          setShowLevelComplete(false);
+          if (level === MAX_LEVEL) {
             setGameStatus('complete');
-          }, 1000);
-        } else {
-          showPopup(`Great job! Level ${level} complete!`, 'success');
-          setTimeout(() => {
+          } else {
             startLevel(level + 1);
-          }, 1000);
-        }
+          }
+        }, LEVEL_TRANSITION_DELAY);
       }
       return newSelected;
     });
@@ -210,6 +220,7 @@ const Home = () => {
           <h2>Game Complete!</h2>
           <p>Final Level: {level}</p>
           <p>Final Score: {score}</p>
+          <p>Your Memory IQ: {iqScore}</p>
           <button onClick={resetGame}>Play Again</button>
         </div>
         {popupMessage.show && (
@@ -223,6 +234,15 @@ const Home = () => {
 
   return (
     <div className="game-screen">
+      {showLevelComplete && (
+        <div className="level-complete-overlay">
+          <div className="level-complete-popup">
+            <h2>Level {level} Complete!</h2>
+            <p>Congratulations!</p>
+            <p className="iq-display">Your Memory IQ: {iqScore}</p>
+          </div>
+        </div>
+      )}
       <GameInfo 
         level={level} 
         score={score} 
@@ -230,6 +250,7 @@ const Home = () => {
         timeLeft={timeLeft}
         wrongAttempts={wrongAttempts}
         maxWrongAttempts={MAX_WRONG_ATTEMPTS}
+        iqScore={iqScore}
       />
       
       {phase === 'memorize' ? (

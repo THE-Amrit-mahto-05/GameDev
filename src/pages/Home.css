@@ -1,3 +1,4 @@
+
 .game-screen {
   display: flex;
   flex-direction: column;
@@ -6,6 +7,7 @@
   min-height: 100vh;
   padding: 20px;
   background: #f5f7fa;
+  position: relative;
 }
 
 .start-screen, .complete-screen {
@@ -145,7 +147,6 @@
   font-weight: bold;
 }
 
-
 .popup {
   position: fixed;
   top: 20px;
@@ -189,7 +190,53 @@
   background-color: #e74c3c;
 }
 
+.level-complete-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
+  animation: fadeIn 0.3s ease-out;
+}
 
-.game-screen {
-  position: relative;
+.level-complete-popup {
+  background: white;
+  padding: 2rem;
+  border-radius: 10px;
+  text-align: center;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.level-complete-popup h2 {
+  color: #2ecc71;
+  margin-bottom: 1rem;
+  font-size: 2rem;
+}
+
+.level-complete-popup p {
+  font-size: 1.2rem;
+  margin: 0.5rem 0;
+}
+
+.iq-display {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: #3498db;
+  margin-top: 1rem;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
